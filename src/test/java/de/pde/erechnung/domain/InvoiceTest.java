@@ -10,6 +10,12 @@ import java.util.ArrayList;
 
 class InvoiceTest {
 
+    private static UUID id() {
+        return UUID.randomUUID();
+    }
+
+    private static final String INVOICE_NUMBER = "RE-2026-001";
+
     private static Party seller() {
         return new Party("Inigo Montoya", "Strasse", "84456", "Homecity", "DE", "DE818282828128128");
     }
@@ -22,43 +28,43 @@ class InvoiceTest {
         return new InvoiceLine("Beratung", new BigDecimal(quantity), new BigDecimal(unitPrice), 19);
     }
 
+    private static Invoice invoice(UUID id, String invoiceNumber, Party seller, List<InvoiceLine> lines) {
+        return new Invoice(id, invoiceNumber, LocalDate.of(2026, 11, 20), seller, buyer(), lines);
+    }
+
+    private static List<InvoiceLine> lines() {
+        return List.of(line("2", "19.99"), line("1.5", "10.00"));
+    }
+
     @Test
     void correctSum() {
-        var lines = List.of(line("2", "19.99"), line("1.5", "10.00"));
-        var invoice = new Invoice(UUID.randomUUID(), "RE-2026-001", LocalDate.of(2026, 11, 20), seller(), buyer(),
-                lines);
+        var invoice = invoice(id(), INVOICE_NUMBER, seller(), lines());
 
         assertThat(invoice.netTotal()).isEqualByComparingTo("54.98");
     }
 
     @Test
     void noPositions() {
-        assertThatThrownBy(() -> new Invoice(UUID.randomUUID(), "RE-2026-001", LocalDate.of(2026, 11, 20), seller(),
-                buyer(), List.of()))
+        assertThatThrownBy(() -> invoice(id(), INVOICE_NUMBER, seller(), List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void noInvoiceNumber() {
-        var lines = List.of(line("2", "19.99"), line("1.5", "10.00"));
         assertThatThrownBy(
-                () -> new Invoice(UUID.randomUUID(), "    ", LocalDate.of(2026, 11, 20), seller(), buyer(), lines))
-                .isInstanceOf(IllegalArgumentException.class);
+                () -> invoice(id(), "    ", seller(), lines())).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void noSeller() {
-        var lines = List.of(line("2", "19.99"), line("1.5", "10.00"));
         assertThatThrownBy(
-                () -> new Invoice(UUID.randomUUID(), "RE-2026-001", LocalDate.of(2026, 11, 20), null, buyer(), lines))
-                .isInstanceOf(NullPointerException.class);
+                () -> invoice(id(), INVOICE_NUMBER, null, lines())).isInstanceOf(NullPointerException.class);
     }
 
     @Test
     void changeOrginalList() {
-        var lines = new ArrayList<>(List.of(line("2", "19.99"), line("1.5", "10.00")));
-        var invoice = new Invoice(UUID.randomUUID(), "RE-2026-001", LocalDate.of(2026, 11, 20), seller(), buyer(),
-                lines);
+        var lines = new ArrayList<>(lines());
+        var invoice = invoice(id(), INVOICE_NUMBER, seller(), lines);
 
         lines.add(line("3", "20.00"));
         assertThat(invoice.getLines())
@@ -67,9 +73,8 @@ class InvoiceTest {
 
     @Test
     void unsupportedAction() {
-        var lines = new ArrayList<>(List.of(line("2", "19.99"), line("1.5", "10.00")));
-        var invoice = new Invoice(UUID.randomUUID(), "RE-2026-001", LocalDate.of(2026, 11, 20), seller(), buyer(),
-                lines);
+        var lines = new ArrayList<>(lines());
+        var invoice = invoice(id(), INVOICE_NUMBER, seller(), lines);
 
         assertThatThrownBy(() -> invoice.getLines().add(line("2", "1.99")))
                 .isInstanceOf(UnsupportedOperationException.class);
@@ -77,21 +82,18 @@ class InvoiceTest {
 
     @Test
     void sameId() {
-        var id = UUID.randomUUID();
-        var lines = new ArrayList<>(List.of(line("2", "19.99"), line("1.5", "10.00")));
-        var invoiceOne = new Invoice(id, "RE-2026-001", LocalDate.of(2026, 11, 20), seller(), buyer(), lines);
-        var invoiceTwo = new Invoice(id, "RE-2026-002", LocalDate.of(2026, 11, 20), seller(), buyer(), lines);
+        var sharedId = UUID.randomUUID();
+
+        var invoiceOne = invoice(sharedId, INVOICE_NUMBER, seller(), lines());
+        var invoiceTwo = invoice(sharedId, "RE-2026-002", seller(), lines());
 
         assertThat(invoiceOne).isEqualTo(invoiceTwo);
     }
 
     @Test
     void sameNumbersButNotId() {
-        var lines = new ArrayList<>(List.of(line("2", "19.99"), line("1.5", "10.00")));
-        var invoiceOne = new Invoice(UUID.randomUUID(), "RE-2026-001", LocalDate.of(2026, 11, 20), seller(), buyer(),
-                lines);
-        var invoiceTwo = new Invoice(UUID.randomUUID(), "RE-2026-001", LocalDate.of(2026, 11, 20), seller(), buyer(),
-                lines);
+        var invoiceOne = invoice(id(), INVOICE_NUMBER, seller(), lines());
+        var invoiceTwo = invoice(id(), INVOICE_NUMBER, seller(), lines());
 
         assertThat(invoiceOne).isNotEqualTo(invoiceTwo);
     }
