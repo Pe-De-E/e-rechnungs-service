@@ -24,8 +24,8 @@ class InvoiceTest {
         return new Party("Dobidush Mahabo", "Strasse", "84456", "Homecity", "DE", "DE818282828128128");
     }
 
-    private static InvoiceLine line(String quantity, String unitPrice) {
-        return new InvoiceLine("Beratung", new BigDecimal(quantity), new BigDecimal(unitPrice), 19);
+    private static InvoiceLine line(String quantity, String unitPrice, int vatRate) {
+        return new InvoiceLine("Beratung", new BigDecimal(quantity), new BigDecimal(unitPrice), vatRate);
     }
 
     private static Invoice invoice(UUID id, String invoiceNumber, Party seller, List<InvoiceLine> lines) {
@@ -33,7 +33,7 @@ class InvoiceTest {
     }
 
     private static List<InvoiceLine> lines() {
-        return List.of(line("2", "19.99"), line("1.5", "10.00"));
+        return List.of(line("2", "19.99", 19), line("1.5", "10.00", 19));
     }
 
     @Test
@@ -66,7 +66,7 @@ class InvoiceTest {
         var lines = new ArrayList<>(lines());
         var invoice = invoice(id(), INVOICE_NUMBER, seller(), lines);
 
-        lines.add(line("3", "20.00"));
+        lines.add(line("3", "20.00", 19));
         assertThat(invoice.getLines())
                 .hasSize(2);
     }
@@ -76,7 +76,7 @@ class InvoiceTest {
         var lines = new ArrayList<>(lines());
         var invoice = invoice(id(), INVOICE_NUMBER, seller(), lines);
 
-        assertThatThrownBy(() -> invoice.getLines().add(line("2", "1.99")))
+        assertThatThrownBy(() -> invoice.getLines().add(line("2", "1.99", 19)))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 
@@ -96,5 +96,59 @@ class InvoiceTest {
         var invoiceTwo = invoice(id(), INVOICE_NUMBER, seller(), lines());
 
         assertThat(invoiceOne).isNotEqualTo(invoiceTwo);
+    }
+
+    @Test
+    void correctTaxSum() {
+        //Satz	Netto der Gruppe	                    Steuer
+        //19 %	39.98 + 14.97 + 14.97 = 69.92	        13.2848 → 13.28
+        //7 %	15.00 + 5.98 + 4.98 + 15.00 = 40.96	    2.8672 → 2.87
+        //0 %	39.98 + 59.96 = 99.94	                0.00
+        //                                              ===============
+        //                                              16.15
+        
+        var lines = List.of(
+            line("2", "19.99", 19), 
+            line("1.5", "10.00", 7),
+            line("3", "4.99", 19),
+            line("2", "2.99", 7),
+            line("2.5", "1.99", 7),
+            line("2", "19.99", 0), 
+            line("1.5", "10.00", 7),
+            line("3", "4.99", 19),
+            line("4", "14.99", 0));
+        var invoice = invoice(id(), INVOICE_NUMBER, seller(), lines);
+
+        assertThat(invoice.vatTotal()).isEqualByComparingTo("16.15");
+    }
+
+    @Test
+    void roundsVatPerRateGroup() {
+        var lines = List.of(
+            line("1", "10.03", 19),
+            line("1", "10.03", 19),
+            line("1", "10.03", 19));
+        
+        var invoice = invoice(id(), INVOICE_NUMBER, seller(), lines);
+
+        assertThat(invoice.vatTotal()).isEqualByComparingTo("5.72");
+    }
+
+    @Test
+    void correctGrossAmount() {
+
+        var lines = List.of(
+            line("2", "19.99", 19), 
+            line("1.5", "10.00", 7),
+            line("3", "4.99", 19),
+            line("2", "2.99", 7),
+            line("2.5", "1.99", 7),
+            line("2", "19.99", 0), 
+            line("1.5", "10.00", 7),
+            line("3", "4.99", 19),
+            line("4", "14.99", 0));
+        var invoice = invoice(id(), INVOICE_NUMBER, seller(), lines);
+
+        assertThat(invoice.grossTotal()).isEqualByComparingTo("226.97");
     }
 }

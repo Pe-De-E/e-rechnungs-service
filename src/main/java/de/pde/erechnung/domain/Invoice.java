@@ -5,6 +5,9 @@ import java.time.LocalDate;
 import java.util.UUID;
 import java.util.List;
 import java.util.Objects;
+import java.math.RoundingMode;
+import java.util.Map;
+import java.util.HashMap;
 
 public class Invoice {
     private final UUID id;
@@ -68,6 +71,16 @@ public class Invoice {
         return net;
     }
 
+    public BigDecimal grossTotal() {
+        var gross = BigDecimal.ZERO;
+
+        for (InvoiceLine line : lines) {
+            gross = gross.add(line.netAmount());
+        }
+
+        return gross.add(vatTotal());
+    }
+
     @Override
     public boolean equals(Object otherInvoice) {
         if (!(otherInvoice instanceof Invoice other)) return false;
@@ -77,6 +90,30 @@ public class Invoice {
     @Override
     public int hashCode() {
         return getId().hashCode();
+    }
+
+    public BigDecimal vatTotal() {
+        Map<Integer, BigDecimal> taxes = new HashMap<>();
+        var grossTax = BigDecimal.ZERO;
+
+        for (InvoiceLine line : lines) {
+            if (!taxes.containsKey(line.vatRate())) {
+                taxes.put(line.vatRate(), line.netAmount());
+            }
+            else {
+                taxes.put(line.vatRate(), taxes.get(line.vatRate()).add(line.netAmount()));
+            }
+        }
+
+        for (Integer taxGroup : taxes.keySet()) {
+            BigDecimal temp = taxes.get(taxGroup);
+            BigDecimal vat = BigDecimal.valueOf(taxGroup).movePointLeft(2);
+
+            grossTax = grossTax.add(temp.multiply(vat).setScale(2, RoundingMode.HALF_UP));
+        }
+
+
+        return grossTax;
     }
 
     private static void requireNotBlank(String value, String fieldName) {
