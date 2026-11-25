@@ -72,18 +72,13 @@ public class Invoice {
     }
 
     public BigDecimal grossTotal() {
-        var gross = BigDecimal.ZERO;
-
-        for (InvoiceLine line : lines) {
-            gross = gross.add(line.netAmount());
-        }
-
-        return gross.add(vatTotal());
+        return netTotal().add(vatTotal());
     }
 
     @Override
     public boolean equals(Object otherInvoice) {
-        if (!(otherInvoice instanceof Invoice other)) return false;
+        if (!(otherInvoice instanceof Invoice other))
+            return false;
         return this.id.equals(other.getId());
     }
 
@@ -99,8 +94,7 @@ public class Invoice {
         for (InvoiceLine line : lines) {
             if (!taxes.containsKey(line.vatRate())) {
                 taxes.put(line.vatRate(), line.netAmount());
-            }
-            else {
+            } else {
                 taxes.put(line.vatRate(), taxes.get(line.vatRate()).add(line.netAmount()));
             }
         }
@@ -111,7 +105,6 @@ public class Invoice {
 
             grossTax = grossTax.add(temp.multiply(vat).setScale(2, RoundingMode.HALF_UP));
         }
-
 
         return grossTax;
     }
